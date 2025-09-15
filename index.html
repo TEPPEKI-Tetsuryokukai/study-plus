@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyTime Tracker - 勉強時間管理</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --success: #4cc9f0;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --light-gray: #e9ecef;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7ff;
+            color: var(--dark);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--box-shadow);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: var(--primary);
+            border-bottom: 2px solid var(--light-gray);
+            padding-bottom: 10px;
+        }
+
+        .timer-container {
+            text-align: center;
+        }
+
+        #timer {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 20px 0;
+            color: var(--secondary);
+            font-family: monospace;
+        }
+
+        .timer-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary);
+        }
+
+        .btn-success {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: #e63946;
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        input, select {
+            padding: 10px 15px;
+            border: 1px solid var(--light-gray);
+            border-radius: 50px;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .manual-form {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            text-align: center;
+            box-shadow: var(--box-shadow);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .chart-container {
+            margin-bottom: 30px;
+            height: 300px;
+        }
+
+        .history {
+            margin-top: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--box-shadow);
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--light-gray);
+        }
+
+        th {
+            background-color: var(--primary);
+            color: white;
+            font-weight: bold;
+        }
+
+        tr:hover {
+            background-color: var(--light-gray);
+        }
+
+        .delete-btn {
+            color: #e63946;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>StudyTime Tracker</h1>
+            <p class="subtitle">勉強時間を計測・記録・分析</p>
+        </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="today-time">0h 0m</div>
+                <div class="stat-label">今日の勉強時間</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="week-time">0h 0m</div>
+                <div class="stat-label">今週の勉強時間</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="total-time">0h 0m</div>
+                <div class="stat-label">合計勉強時間</div>
+            </div>
+        </div>
+
+        <div class="dashboard">
+            <div class="card">
+                <h2 class="card-title">勉強計測</h2>
+                <div class="timer-container">
+                    <div id="timer">00:00:00</div>
+                    <div class="timer-buttons">
+                        <button class="btn-primary" onclick="startTimer()">開始</button>
+                        <button class="btn-danger" onclick="stopTimer()">停止</button>
+                    </div>
+                    <input type="text" id="subject" placeholder="科目名（例：数学、英語）">
+                    <button class="btn-success" onclick="saveRecord()">記録を保存</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">手動入力</h2>
+                <div class="manual-form">
+                    <input type="text" id="manual-subject" placeholder="科目名">
+                    <input type="date" id="study-date">
+                    <input type="number" id="study-hours" placeholder="時間（0.5 = 30分）" step="0.5" min="0.5" max="24">
+                    <textarea id="study-notes" placeholder="メモ（任意）" rows="3"></textarea>
+                    <button class="btn-success" onclick="addManualRecord()">記録を追加</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">勉強時間の推移（7日間）</h2>
+            <div class="chart-container">
+                <canvas id="weeklyChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">科目別割合</h2>
+            <div class="chart-container">
+                <canvas id="subjectChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card history">
+            <h2 class="card-title">勉強記録</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>日付</th>
+                        <th>科目</th>
+                        <th>時間</th>
+                        <th>メモ</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="records-table">
+                    <!-- 記録がここに追加されます -->
+                </tbody>
+            </table>
+        </div>
+
+        <footer>
+            <p>StudyTime Tracker &copy; 2023 - GitHub Pagesで利用可能な勉強時間管理ツール</p>
+        </footer>
+    </div>
+
+    <script>
+        // 変数定義
+        let timerInterval;
+        let startTime;
+        let elapsedTime = 0;
+        let isRunning = false;
+        let weeklyChart, subjectChart;
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 今日の日付を日付入力に設定
+            document.getElementById('study-date').valueAsDate = new Date();
+            
+            // グラフの初期化
+            initCharts();
+            
+            // 記録の読み込みと表示
+            loadRecords();
+            updateStats();
+            renderRecordsTable();
+        });
+
+        // タイマー機能
+        function startTimer() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            startTime = new Date() - elapsedTime;
+            
+            timerInterval = setInterval(function() {
+                const now = new Date();
+                elapsedTime = now - startTime;
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (!isRunning) return;
+            
+            clearInterval(timerInterval);
+            isRunning = false;
+        }
+
+        function updateTimerDisplay() {
+            const hours = Math.floor(elapsedTime / 3600000);
+            const minutes = Math.floor((elapsedTime % 3600000) / 60000);
+            const seconds = Math.floor((elapsedTime % 60000) / 1000);
+            
+            document.getElementById('timer').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // 記録の保存
+        function saveRecord() {
+            if (elapsedTime === 0) {
+                alert('まずは勉強を開始してください');
+                return;
+            }
+            
+            const subject = document.getElementById('subject').value.trim();
+            if (!subject) {
+                alert('科目名を入力してください');
+                return;
+            }
+            
+            const hours = (elapsedTime / 3600000).toFixed(2);
+            const record = {
+                date: new Date().toISOString().split('T')[0],
+                subject: subject,
+                hours: parseFloat(hours),
+                notes: '計測記録',
+                timestamp: new Date().toISOString()
+            };
+            
+            addRecord(record);
+            resetTimer();
+            alert('記録を保存しました！');
+        }
+
+        function addManualRecord() {
+            const subject = document.getElementById('manual-subject').value.trim();
+            const date = document.getElementById('study-date').value;
+            const hours = parseFloat(document.getElementById('study-hours').value);
+            const notes = document.getElementById('study-notes').value.trim();
+            
+            if (!subject || !date || !hours) {
+                alert('科目名、日付、時間は必須です');
+                return;
+            }
+            
+            if (hours <= 0) {
+                alert('勉強時間は0より大きい値で入力してください');
+                return;
+            }
+            
+            const record = {
+                date: date,
+                subject: subject,
+                hours: hours,
+                notes: notes || '手動記録',
+                timestamp: new Date().toISOString()
+            };
+            
+            addRecord(record);
+            
+            // フォームをリセット
+            document.getElementById('manual-subject').value = '';
+            document.getElementById('study-hours').value = '';
+            document.getElementById('study-notes').value = '';
+            
+            alert('記録を追加しました！');
+        }
+
+        function resetTimer() {
+            stopTimer();
+            elapsedTime = 0;
+            document.getElementById('timer').textContent = '00:00:00';
+            document.getElementById('subject').value = '';
+        }
+
+        // データ管理
+        function getRecords() {
+            const recordsJSON = localStorage.getItem('studyRecords');
+            return recordsJSON ? JSON.parse(recordsJSON) : [];
+        }
+
+        function saveRecords(records) {
+            localStorage.setItem('studyRecords', JSON.stringify(records));
+        }
+
+        function addRecord(record) {
+            const records = getRecords();
+            records.push(record);
+            saveRecords(records);
+            loadRecords();
+        }
+
+        function deleteRecord(index) {
+            const records = getRecords();
+            records.splice(index, 1);
+            saveRecords(records);
+            loadRecords();
+        }
+
+        function loadRecords() {
+            updateStats();
+            renderRecordsTable();
+            updateCharts();
+        }
+
+        // 統計情報の更新
+        function updateStats() {
+            const records = getRecords();
+            const today = new Date().toISOString().split('T')[0];
+            
+            // 今日の勉強時間
+            const todayTime = records
+                .filter(record => record.date === today)
+                .reduce((total, record) => total + record.hours, 0);
+            
+            // 今週の勉強時間
+            const oneWeekAgo = new Date();
+            oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+            
+            const weekTime = records
+                .filter(record => new Date(record.date) >= oneWeekAgo)
+                .reduce((total, record) => total + record.hours, 0);
+            
+            // 合計勉強時間
+            const totalTime = records.reduce((total, record) => total + record.hours, 0);
+            
+            // 表示を更新
+            document.getElementById('today-time').textContent = `${Math.floor(todayTime)}h ${Math.round((todayTime % 1) * 60)}m`;
+            document.getElementById('week-time').textContent = `${Math.floor(weekTime)}h ${Math.round((weekTime % 1) * 60)}m`;
+            document.getElementById('total-time').textContent = `${Math.floor(totalTime)}h ${Math.round((totalTime % 1) * 60)}m`;
+        }
+
+        // テーブルのレンダリング
+        function renderRecordsTable() {
+            const records = getRecords();
+            const tableBody = document.getElementById('records-table');
+            
+            // 日付でソート（新しい順）
+            records.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            tableBody.innerHTML = '';
+            
+            if (records.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">記録がありません</td></tr>';
+                return;
+            }
+            
+            records.forEach((record, index) => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${formatDate(record.date)}</td>
+                    <td>${record.subject}</td>
+                    <td>${record.hours.toFixed(1)}時間</td>
+                    <td>${record.notes}</td>
+                    <td class="delete-btn" onclick="deleteRecord(${index})">削除</td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        // グラフの初期化と更新
+        function initCharts() {
+            const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
+            const subjectCtx = document.getElementById('subjectChart').getContext('2d');
+            
+            weeklyChart = new Chart(weeklyCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '勉強時間（時間）',
+                        data: [],
+                        backgroundColor: 'rgba(67, 97, 238, 0.5)',
+                        borderColor: 'rgba(67, 97, 238, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '時間'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            subjectChart = new Chart(subjectCtx, {
+                type: 'pie',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [
+                            'rgba(67, 97, 238, 0.7)',
+                            'rgba(76, 201, 240, 0.7)',
+                            'rgba(58, 12, 163, 0.7)',
+                            'rgba(247, 37, 133, 0.7)',
+                            'rgba(255, 200, 87, 0.7)',
+                            'rgba(45, 212, 191, 0.7)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+            
+            updateCharts();
+        }
+
+        function updateCharts() {
+            const records = getRecords();
+            
+            // 週間グラフの更新
+            const last7Days = [];
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                last7Days.push(date.toISOString().split('T')[0]);
+            }
+            
+            const dailyData = last7Days.map(date => {
+                const dayRecords = records.filter(record => record.date === date);
+                return dayRecords.reduce((total, record) => total + record.hours, 0);
+            });
+            
+            weeklyChart.data.labels = last7Days.map(date => formatDate(date));
+            weeklyChart.data.datasets[0].data = dailyData;
+            weeklyChart.update();
+            
+            // 科目別グラフの更新
+            const subjects = {};
+            records.forEach(record => {
+                if (subjects[record.subject]) {
+                    subjects[record.subject] += record.hours;
+                } else {
+                    subjects[record.subject] = record.hours;
+                }
+            });
+            
+            // 科目を勉強時間の降順でソート
+            const sortedSubjects = Object.entries(subjects)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 6); // 最大6科目まで表示
+            
+            subjectChart.data.labels = sortedSubjects.map(item => item[0]);
+            subjectChart.data.datasets[0].data = sortedSubjects.map(item => item[1]);
+            subjectChart.update();
+        }
+
+        // ユーティリティ関数
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return `${date.getMonth() + 1}/${date.getDate()}`;
+        }
+    </script>
+</body>
+</html>
